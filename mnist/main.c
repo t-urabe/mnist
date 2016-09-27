@@ -26,6 +26,7 @@
 #define SIZE 784   /* 28 x 28 */
 #define NUM_HIDDEN 5
 #define CLASS 10
+double alpha = 1e-0;
 
 static int num[10];
 unsigned char train_x[NUM_IMAGES_TRAIN][SIZE];
@@ -58,7 +59,7 @@ void FlipLong(unsigned char * ptr);
 void read_images(char *filename,int row, int col, unsigned char images[row][col]);
 void read_labels(char *filename, int length, unsigned char array[length]);
 void print_images(unsigned char images[][SIZE]);
-void print_matrix(int row, int col, double mat[row][col], int showrow, int showcol);
+double print_matrix(int row, int col, double mat[row][col], int showrow, int showcol);
 void matUCtoD(int rowx, int colx, unsigned char x[rowx][colx],
               int rowx_d, int colx_d, double x_d[rowx_d][colx_d]);
 void label_oh(int len, unsigned char y[len],
@@ -80,12 +81,15 @@ void backprop_tanh(int rowu, int colu, double u[rowu][colu],
                    int roww, int colw, double w[roww][colw],
                    int rowd1, int cold1, double d1[rowd1][cold1],
                    int rowd0, int cold0, double d0[rowd0][cold0]);
+void refine_variables(int roww, int colw, double w[roww][colw],
+                      int rowd, int cold, double d[rowd][cold], /* delta(l)*/
+                      int rowz, int colz, double z[rowz][colz], /* z(l-1) */
+                      double alpha);
 void init(unsigned int range,
           int roww, int colw, double w[roww][colw],
           int rowb, int colb, double b[rowb][colb]);
-void cross_entropy(int rowd, int cold, double d[rowd][cold],
-                   int rowy_, int coly_, double y_[rowy_][coly_]);
-    
+double cross_entropy(int rowy_, int coly_, double y_[rowy_][coly_],
+                     int rowd, int cold, double d[rowd][cold]);
     
 /*************************
     main function
@@ -104,25 +108,28 @@ int main(int argc, char **argv){
     matUCtoD(NUM_IMAGES_TEST, SIZE, test_x, NUM_IMAGES_TRAIN,SIZE, test_x_d);
     
     /* make one-hot label matrix */
-    double train_y_oh[NUM_IMAGES_TRAIN][CLASS];
-    double test_y_oh[NUM_IMAGES_TEST][CLASS];
+    double train_y_oh[NUM_IMAGES_TRAIN][CLASS] = {0};
+    double test_y_oh[NUM_IMAGES_TEST][CLASS]=  {0};
     label_oh(NUM_IMAGES_TRAIN, train_y, NUM_IMAGES_TRAIN, CLASS, train_y_oh);
     label_oh(NUM_IMAGES_TEST, test_y, NUM_IMAGES_TEST, CLASS, test_y_oh);
     
     /* initialize variables in hidden layer */
     double w[SIZE][NUM_HIDDEN];
     double b[NUM_HIDDEN][1];
-    init(1.0, SIZE, NUM_HIDDEN ,w, NUM_HIDDEN,1,b);
+    init(5, SIZE, NUM_HIDDEN ,w, NUM_HIDDEN,1,b);
     
     /* initialize variables in surface layer */
     double w_s[NUM_HIDDEN][CLASS];
     double b_s[CLASS][1];
-    init(2, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s);
+    init(1, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s);
     
     /* allocate h (intermid value in hidden layer) */
     double (*h)[NUM_HIDDEN];
     h = calloc(NUM_IMAGES_TRAIN*NUM_HIDDEN, sizeof(double));
     
+    int count = 0;
+    
+    while(count <10){
     /* forward propagation through hidden layer */
     linCon(NUM_IMAGES_TRAIN, SIZE, train_x_d, SIZE, NUM_HIDDEN, w, NUM_HIDDEN, 1, b, NUM_IMAGES_TRAIN, NUM_HIDDEN, h);
    
@@ -138,28 +145,33 @@ int main(int argc, char **argv){
     /* forward propagation through surface layer */
     linCon_softmax(NUM_IMAGES_TRAIN, NUM_HIDDEN, z, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s, NUM_IMAGES_TRAIN, CLASS, y_);
     
+    
+    /* calculate cross-entropy */
+    double cross = cross_entropy(NUM_IMAGES_TRAIN,CLASS, y_,
+                                 NUM_IMAGES_TRAIN,CLASS, train_y_oh);
+    printf("count:%d,  cross=%.5f\n", count, cross);
+    
     /* calculate delta1 */
-    double (*delta1)[4];
-    delta1 = calloc(NUM_IMAGES_TRAIN*4, sizeof(double));
-    for (int i; i< NUM_IMAGES_TRAIN; i++){
-        printf("i=%d\n", i);
-        for(int j; j< 4; j++){
-            //delta1[i][j] = y_[i][j] - train_y_oh[i][j];
-            //printf("y_[%d][%d]: %.3f, ty[%d][%d]: %.3f, delta1[%d][%d]: %.3f\n", i,j,y_[i][j],i,j,train_y_oh[i][j], i,j,delta1[i][j]);
-            printf("delta1[%d][%d]: %.3f\n", i,j,delta1[i][j]);
+    double (*delta1)[CLASS];
+    delta1 = calloc(NUM_IMAGES_TRAIN*CLASS, sizeof(double));
+    for (int i=0; i< NUM_IMAGES_TRAIN; i++){
+        for(int j=0; j< CLASS; j++){
+            delta1[i][j] = y_[i][j] - train_y_oh[i][j];
         }
     }
     
-    //print_matrix(NUM_HIDDEN,CLASS, w_s, 10,13);
-    //print_matrix(NUM_IMAGES_TRAIN,CLASS, train_y_oh, 100,13);
-    //print_matrix(NUM_IMAGES_TRAIN,CLASS, delta1, 100,10);
-    //print_matrix(NUM_IMAGES_TRAIN,NUM_HIDDEN, z, 800,8);
-    //print_matrix(SIZE,NUM_HIDDEN, w, 800,8);
     /* back propagation */
     double delta0[NUM_IMAGES_TRAIN][NUM_HIDDEN];
-    backprop_tanh(NUM_IMAGES_TRAIN, NUM_HIDDEN, h, NUM_HIDDEN, CLASS, w_s, NUM_IMAGES_TRAIN, CLASS, delta1, NUM_IMAGES_TRAIN, NUM_HIDDEN, delta0);
+    backprop_tanh(NUM_IMAGES_TRAIN, NUM_HIDDEN, z, NUM_HIDDEN, CLASS, w_s, NUM_IMAGES_TRAIN, CLASS, delta1, NUM_IMAGES_TRAIN, NUM_HIDDEN, delta0);
     
+    /* sto */
+    /* w_sto = (z.T).dot(delta) */
+    refine_variables(NUM_HIDDEN, CLASS, w_s, NUM_IMAGES_TRAIN, CLASS, delta1, NUM_IMAGES_TRAIN,NUM_HIDDEN,z, alpha);
     
+    refine_variables(SIZE, NUM_HIDDEN, w, NUM_IMAGES_TRAIN, NUM_HIDDEN, delta0, NUM_IMAGES_TRAIN,SIZE,train_x_d, alpha);
+    
+    count += 1;
+    }
     
     return 1;
 }
@@ -254,14 +266,17 @@ void print_images(unsigned char images[][SIZE]){
     
 }
 
-void print_matrix(int row, int col, double mat[row][col], int showrow, int showcol){
+double print_matrix(int row, int col, double mat[row][col], int showrow, int showcol){
+    double sum = 0;
     for (int i=0; i<showrow;i++){
         for(int j=0; j<showcol;j++){
+            sum  += mat[i][j];
             printf("[%d][%d]= %.3f  ", i,j,mat[i][j]);
         }
         puts("");
     }
     puts("");
+    return sum;
 }
 
 void matUCtoD(int rowx, int colx, unsigned char x[rowx][colx],
@@ -279,7 +294,7 @@ void label_oh(int len, unsigned char y[len],
         printf("length did not match in label_oh func");
         exit(0);
     }
-    for (int i=0; i<len; i++)
+    for (int i=59996; i<len; i++)
         y_oh[i][y[i]] = 1.0;
 }
 
@@ -356,11 +371,17 @@ void linCon_softmax(int rowx, int colx, double x[rowx][colx],
     
     for (int i=0; i<rowz; i++){
         double prob[colz];
+        double maxh = h[i][0]; /* init  */
         double sum = 0;
         
         for(int j=0; j<colz; j++){
+            if (maxh < h[i][j])
+                maxh = h[i][j];
+        }
+        
+        for(int j=0; j<colz; j++){
             //printf("atest: %f\n", exp(h[i][j]));
-            prob[j] = exp(h[i][j]);
+            prob[j] = exp(h[i][j]-maxh);
             sum += prob[j];
         }
         for(int j=0; j<colz; j++){
@@ -397,6 +418,35 @@ void backprop_tanh(int rowu, int colu, double u[rowu][colu],
     }
 }
 
+void refine_variables(int roww, int colw, double w[roww][colw],
+                      int rowd, int cold, double d[rowd][cold], /* delta(l)*/
+                      int rowz, int colz, double z[rowz][colz], /* z(l-1) */
+                      double alpha){
+    if(rowz != rowd || roww != colz || colw != cold){
+        printf("Mat shape did not match in refine_var func\n");
+        exit(0);
+    }
+    
+    /* debug*/
+    printf("w[0][0]= %f\n", w[0][0]);
+    
+    /* w_refined = (z.T).dot(d) */
+    int i,j,k;
+    double sum, change;
+    for(i=0; i<roww; i++){
+        for(j=0;j<colw; j++){
+            for(k=0; k<rowz; k++){
+                sum += alpha * z[k][i]*d[k][j];
+                //printf("z[%d][%d]:%f    ,d[%d][%d]:%f\n", k,i,z[k][i],k,j,d[k][j]);
+                w[i][j] = alpha * z[k][i]*d[k][j];
+            }
+            //printf("sum[%d][%d]: %f \n", i,j,sum);
+        }
+    }
+    change = alpha * sum;
+    
+}
+
 void init(unsigned int range,
           int roww, int colw, double w[roww][colw],
           int rowb, int colb, double b[rowb][colb]){
@@ -416,19 +466,16 @@ void init(unsigned int range,
     }
 }
 
-/*
-double cross_entropy(int rowy_, int coly_, double y_[rowy_][coly_],
-                     int lend, unsigned char d[lend],
-                     int lend, unsigned char d[lend]){
 
-    //深層学習　p51見て引数を再考
-    double e;
+double cross_entropy(int rowy_, int coly_, double y_[rowy_][coly_],
+                     int rowd, int cold, double d[rowd][cold]){
+    double e=0;
+    
     for(int i=0; i<rowy_; i++){
         for(int j=0; j<coly_; j++){
-            if (d[i] == j)
-                e -= log(y_[i][j]);
+            e -= d[i][j]*log(y_[i][j]);
         }
     }
     return e;
 }
-*/
+
