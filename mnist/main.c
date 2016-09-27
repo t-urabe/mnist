@@ -33,7 +33,9 @@ double train_x_d[NUM_IMAGES_TRAIN][SIZE];
 unsigned char test_x[NUM_IMAGES_TEST][SIZE];
 double test_x_d[NUM_IMAGES_TEST][SIZE];
 unsigned char train_y[NUM_IMAGES_TRAIN];
+double train_y_oh[NUM_IMAGES_TRAIN][CLASS]; // one-hot label
 unsigned char test_y[NUM_IMAGES_TEST];
+double test_y_oh[NUM_IMAGES_TEST][CLASS];      // one-hot label
 
 /*
  TRAINING SET IMAGE FILE (train-images-idx3-ubyte):
