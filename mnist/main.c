@@ -58,6 +58,7 @@ void FlipLong(unsigned char * ptr);
 void read_images(char *filename,int row, int col, unsigned char images[row][col]);
 void read_labels(char *filename, int length, unsigned char array[length]);
 void print_images(unsigned char images[][SIZE]);
+void print_matrix(int row, int col, double mat[row][col], int showrow, int showcol);
 void matUCtoD(int rowx, int colx, unsigned char x[rowx][colx],
               int rowx_d, int colx_d, double x_d[rowx_d][colx_d]);
 void label_oh(int len, unsigned char y[len],
@@ -65,10 +66,12 @@ void label_oh(int len, unsigned char y[len],
 void matmul(int row1, int col1, double fMat1[row1][col1],
             int row2, int col2, double fMat2[row2][col2],
             int row3, int col3, double tMat3[row3][col3]);
-void linCon_tanh(int rowx, int colx, double x[rowx][colx],
+void linCon(int rowx, int colx, double x[rowx][colx],
                  int roww, int colw, double w[roww][colw],
                  int rowb, int colb, double b[rowb][colb],
-                 int rowz, int colz, double z[rowz][colz]);
+                 int rowh, int colh, double h[rowh][colh]);
+void tanh_mat(int rowh, int colh, double h[rowh][colh],
+              int rowz, int colz, double z[rowz][colz]);
 void linCon_softmax(int rowx, int colx, double x[rowx][colx],
                     int roww, int colw, double w[roww][colw],
                     int rowb, int colb, double b[rowb][colb],
@@ -80,7 +83,8 @@ void backprop_tanh(int rowu, int colu, double u[rowu][colu],
 void init(unsigned int range,
           int roww, int colw, double w[roww][colw],
           int rowb, int colb, double b[rowb][colb]);
- 
+void cross_entropy(int rowd, int cold, double d[rowd][cold],
+                   int rowy_, int coly_, double y_[rowy_][coly_]);
     
     
 /*************************
@@ -108,30 +112,52 @@ int main(int argc, char **argv){
     /* initialize variables in hidden layer */
     double w[SIZE][NUM_HIDDEN];
     double b[NUM_HIDDEN][1];
-    init(5, SIZE, NUM_HIDDEN ,w, NUM_HIDDEN,1,b);
+    init(1.0, SIZE, NUM_HIDDEN ,w, NUM_HIDDEN,1,b);
     
     /* initialize variables in surface layer */
     double w_s[NUM_HIDDEN][CLASS];
     double b_s[CLASS][1];
-    init(5, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s);
+    init(2, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s);
     
+    /* allocate h (intermid value in hidden layer) */
+    double (*h)[NUM_HIDDEN];
+    h = calloc(NUM_IMAGES_TRAIN*NUM_HIDDEN, sizeof(double));
+    
+    /* forward propagation through hidden layer */
+    linCon(NUM_IMAGES_TRAIN, SIZE, train_x_d, SIZE, NUM_HIDDEN, w, NUM_HIDDEN, 1, b, NUM_IMAGES_TRAIN, NUM_HIDDEN, h);
+   
     /* allocate z (output in hidden layer) */
     double (*z)[NUM_HIDDEN];
     z = calloc(NUM_IMAGES_TRAIN*NUM_HIDDEN, sizeof(double));
-    
-    /* forward propagation through hidden layer */
-    linCon_tanh(NUM_IMAGES_TRAIN, SIZE, train_x_d, SIZE, NUM_HIDDEN, w, NUM_HIDDEN, 1, b, NUM_IMAGES_TRAIN, NUM_HIDDEN, z);
+    tanh_mat(NUM_IMAGES_TRAIN,NUM_HIDDEN, h,
+             NUM_IMAGES_TRAIN,NUM_HIDDEN, z);
     
     /* allocate y_ (output in surface layer) */
     double (*y_)[CLASS];
     y_ = calloc(NUM_IMAGES_TRAIN*CLASS, sizeof(double));
-    
     /* forward propagation through surface layer */
     linCon_softmax(NUM_IMAGES_TRAIN, NUM_HIDDEN, z, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s, NUM_IMAGES_TRAIN, CLASS, y_);
     
-    //double cross = cross_entropy(NUM_IMAGES_TRAIN, CLASS, y_, NUM_IMAGES_TRAIN, train_y);
+    /* calculate delta1 */
+    double (*delta1)[4];
+    delta1 = calloc(NUM_IMAGES_TRAIN*4, sizeof(double));
+    for (int i; i< NUM_IMAGES_TRAIN; i++){
+        printf("i=%d\n", i);
+        for(int j; j< 4; j++){
+            //delta1[i][j] = y_[i][j] - train_y_oh[i][j];
+            //printf("y_[%d][%d]: %.3f, ty[%d][%d]: %.3f, delta1[%d][%d]: %.3f\n", i,j,y_[i][j],i,j,train_y_oh[i][j], i,j,delta1[i][j]);
+            printf("delta1[%d][%d]: %.3f\n", i,j,delta1[i][j]);
+        }
+    }
     
-    //printf("cross: %e\n", (cross));
+    //print_matrix(NUM_HIDDEN,CLASS, w_s, 10,13);
+    //print_matrix(NUM_IMAGES_TRAIN,CLASS, train_y_oh, 100,13);
+    //print_matrix(NUM_IMAGES_TRAIN,CLASS, delta1, 100,10);
+    //print_matrix(NUM_IMAGES_TRAIN,NUM_HIDDEN, z, 800,8);
+    //print_matrix(SIZE,NUM_HIDDEN, w, 800,8);
+    /* back propagation */
+    double delta0[NUM_IMAGES_TRAIN][NUM_HIDDEN];
+    backprop_tanh(NUM_IMAGES_TRAIN, NUM_HIDDEN, h, NUM_HIDDEN, CLASS, w_s, NUM_IMAGES_TRAIN, CLASS, delta1, NUM_IMAGES_TRAIN, NUM_HIDDEN, delta0);
     
     
     
@@ -228,6 +254,16 @@ void print_images(unsigned char images[][SIZE]){
     
 }
 
+void print_matrix(int row, int col, double mat[row][col], int showrow, int showcol){
+    for (int i=0; i<showrow;i++){
+        for(int j=0; j<showcol;j++){
+            printf("[%d][%d]= %.3f  ", i,j,mat[i][j]);
+        }
+        puts("");
+    }
+    puts("");
+}
+
 void matUCtoD(int rowx, int colx, unsigned char x[rowx][colx],
               int rowx_d, int colx_d, double x_d[rowx_d][colx_d]){
     int i, j;
@@ -251,7 +287,7 @@ void matmul(int row1, int col1, double fMat1[row1][col1],
             int row2, int col2, double fMat2[row2][col2],
             int row3, int col3, double tMat3[row3][col3]){
     if (col1 != row2 || row1 != row3 || col2 != col3){
-        printf("Mat dimension did not match\n");
+        printf("Mat dimension did not match in matmul\n");
         exit(0);
     }
     
@@ -263,19 +299,17 @@ void matmul(int row1, int col1, double fMat1[row1][col1],
     }
 }
 
-void linCon_tanh(int rowx, int colx, double x[rowx][colx],
+void linCon(int rowx, int colx, double x[rowx][colx],
                  int roww, int colw, double w[roww][colw],
                  int rowb, int colb, double b[rowb][colb],
-                 int rowz, int colz, double z[rowz][colz]){
-    if (colx != roww || rowx != rowz || colw != colz || colw != rowb || colb != 1){
-        printf("Mat shape did not match\n");
+                 int rowh, int colh, double h[rowh][colh]){
+    if (colx != roww || rowx != rowh || colw != colh || colw != rowb || colb != 1){
+        printf("Mat shape did not match in linCon\n");
         exit(0);
     }
     int i,j,k;
-    double (*h)[colw];
-    h = calloc(rowx*colw, sizeof(double));
-    for (i =0; i<rowz; i++){
-        for(j=0; j<colz; j++){
+    for (i =0; i<rowh; i++){
+        for(j=0; j<colh; j++){
             for(k=0; k<colx; k++){
                 h[i][j] += x[i][k] * w[k][j];
                 //printf("i =%d, j= %d, k= %d\n", i,j,k);
@@ -283,11 +317,19 @@ void linCon_tanh(int rowx, int colx, double x[rowx][colx],
             }
             //printf("h[%d][%d]= %e\n", i, j, h[i][j]);
             h[i][j] += b[j][0];
-            z[i][j] = tanh(h[i][j]);
             //printf("z[%d][%d]= %e\n", i, j, z[i][j]);
         }
     }
-    free(h);
+}
+
+void tanh_mat(int rowh, int colh, double h[rowh][colh],
+              int rowz, int colz, double z[rowz][colz]){
+    int i,j;
+    for(i=0; i<rowh; i++){
+        for(j=0; j<colh; j++){
+            z[i][j] = tanh(h[i][j]);
+        }
+    }
 }
 
 void linCon_softmax(int rowx, int colx, double x[rowx][colx],
@@ -295,7 +337,7 @@ void linCon_softmax(int rowx, int colx, double x[rowx][colx],
                     int rowb, int colb, double b[rowb][colb],
                     int rowz, int colz, double z[rowz][colz]){
     if (colx != roww || rowx != rowz || colw != colz || colw != rowb || colb != 1){
-        printf("Mat shape did not match\n");
+        printf("Mat shape did not match in linCon_softmax\n");
         exit(0);
     }
     int i,j,k;
@@ -332,23 +374,24 @@ void backprop_tanh(int rowu, int colu, double u[rowu][colu],
                    int roww, int colw, double w[roww][colw],
                    int rowd1, int cold1, double d1[rowd1][cold1],
                    int rowd0, int cold0, double d0[rowd0][cold0]){
-    if (cold1 != roww || colu != colw || cold0 != colw){
-        printf ("Mat shape did not match\n");
+    if (cold1 != colw /*(row(w.T)*/ || colu != roww /*col(w.T)*/ || cold0 != roww){
+        printf ("Mat shape did not match in backprop_tanh func\n");
         exit(0);
     }
     
-    double (*temp)[colw];
+    double (*temp)[colw]; /* delta1.dot(w1.T) */
     temp = calloc(rowd1*colw, sizeof(double));
     for (int i=0; i< rowd1; i++ ){
         for(int j=0; j<colw; j++){
             for(int k=0; k<cold1; k++){
-                temp[i][j] += d1[i][k] * w[k][j];
+                temp[i][j] += d1[i][k] * w[j][k]; /* w.T */
             }
         }
     }
     
     for(int i=0; i< rowd0; i++){
         for(int j=0; j<cold0; j++){
+            /* delta0 = tanh'(u0) * delta1.dot(w1) */
             d0[i][j] = (1- pow(tanh(u[i][j]), 2.0)) * temp[i][j];
         }
     }
@@ -358,7 +401,7 @@ void init(unsigned int range,
           int roww, int colw, double w[roww][colw],
           int rowb, int colb, double b[rowb][colb]){
     if (colw != rowb){
-        printf("Matrix shape did not match");
+        printf("Matrix shape did not match in init func\n");
         exit(0);
     }
     
@@ -377,6 +420,7 @@ void init(unsigned int range,
 double cross_entropy(int rowy_, int coly_, double y_[rowy_][coly_],
                      int lend, unsigned char d[lend],
                      int lend, unsigned char d[lend]){
+
     //深層学習　p51見て引数を再考
     double e;
     for(int i=0; i<rowy_; i++){
