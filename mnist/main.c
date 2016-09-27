@@ -16,10 +16,10 @@
 #include <unistd.h>
 #include <math.h>
 
-#define TRAIN_X_PATH "/Users/TU_MB12/documents/xcode_source/mnist/data/train-images-idx3-ubyte"
-#define TRAIN_Y_PATH "/Users/TU_MB12/documents/xcode_source/mnist/data/train-labels-idx1-ubyte"
-#define TEST_X_PATH "/Users/TU_MB12/documents/xcode_source/mnist/data/t10k-images-idx3-ubyte"
-#define TEST_Y_PATH "/Users/TU_MB12/documents/xcode_source/mnist/data/t10k-labels-idx1-ubyte"
+#define TRAIN_X_PATH "data/train-images-idx3-ubyte"
+#define TRAIN_Y_PATH "data/train-labels-idx1-ubyte"
+#define TEST_X_PATH "data/t10k-images-idx3-ubyte"
+#define TEST_Y_PATH "data/t10k-labels-idx1-ubyte"
 
 #define NUM_IMAGES_TRAIN 60000
 #define NUM_IMAGES_TEST 10000
@@ -75,7 +75,7 @@ void read_images(char *filename,int row, int col, unsigned char images[row][col]
     unsigned char *ptr;
     
     if ((fd=open(filename, O_RDONLY))==-1){
-        printf("couldn't open image file");
+        printf("couldn't open image file: %s\n", filename);
         exit(0);
     }
     
