@@ -50,7 +50,86 @@ unsigned char test_y[NUM_IMAGES_TEST];
  Pixels are organized row-wise. Pixel values are 0 to 255. 0 means background (white), 255 means foreground (black).
  */
 
+/* function prototype decleration */
 
+void FlipLong(unsigned char * ptr);
+void read_images(char *filename,int row, int col, unsigned char images[row][col]);
+void read_labels(char *filename, int length, unsigned char array[length]);
+void print_images(unsigned char images[][SIZE]);
+void matUCtoD(int rowx, int colx, unsigned char x[rowx][colx],
+              int rowx_d, int colx_d, double x_d[rowx_d][colx_d]);
+void matmul(int row1, int col1, double fMat1[row1][col1],
+            int row2, int col2, double fMat2[row2][col2],
+            int row3, int col3, double tMat3[row3][col3]);
+void linCon_tanh(int rowx, int colx, double x[rowx][colx],
+                 int roww, int colw, double w[roww][colw],
+                 int rowb, int colb, double b[rowb][colb],
+                 int rowz, int colz, double z[rowz][colz]);
+void linCon_softmax(int rowx, int colx, double x[rowx][colx],
+                    int roww, int colw, double w[roww][colw],
+                    int rowb, int colb, double b[rowb][colb],
+                    int rowz, int colz, double z[rowz][colz]);
+void backprop_tanh(int rowu, int colu, double u[rowu][colu],
+                   int roww, int colw, double w[roww][colw],
+                   int rowd1, int cold1, double d1[rowd1][cold1],
+                   int rowd0, int cold0, double d0[rowd0][cold0]);
+void init(unsigned int range,
+          int roww, int colw, double w[roww][colw],
+          int rowb, int colb, double b[rowb][colb]);
+ 
+    
+    
+/*************************
+    main function
+ ************************/
+    
+int main(int argc, char **argv){
+    
+    /* read images and labels for train and test data */
+    read_images(TRAIN_X_PATH, NUM_IMAGES_TRAIN, SIZE, train_x);
+    read_images(TEST_X_PATH, NUM_IMAGES_TEST, SIZE,  test_x);
+    read_labels(TRAIN_Y_PATH, NUM_IMAGES_TRAIN, train_y);
+    read_labels(TEST_Y_PATH, NUM_IMAGES_TEST, test_y);
+    
+    /* cast image data from unsigned char to double */
+    matUCtoD(NUM_IMAGES_TRAIN, SIZE, train_x, NUM_IMAGES_TRAIN,SIZE, train_x_d);
+    matUCtoD(NUM_IMAGES_TEST, SIZE, test_x, NUM_IMAGES_TRAIN,SIZE, test_x_d);
+    
+    /* initialize variables in hidden layer */
+    double w[SIZE][NUM_HIDDEN];
+    double b[NUM_HIDDEN][1];
+    init(5, SIZE, NUM_HIDDEN ,w, NUM_HIDDEN,1,b);
+    
+    /* initialize variables in surface layer */
+    double w_s[NUM_HIDDEN][CLASS];
+    double b_s[CLASS][1];
+    init(5, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s);
+    
+    /* allocate z (output in hidden layer) */
+    double (*z)[NUM_HIDDEN];
+    z = calloc(NUM_IMAGES_TRAIN*NUM_HIDDEN, sizeof(double));
+    
+    /* forward propagation through hidden layer */
+    linCon_tanh(NUM_IMAGES_TRAIN, SIZE, train_x_d, SIZE, NUM_HIDDEN, w, NUM_HIDDEN, 1, b, NUM_IMAGES_TRAIN, NUM_HIDDEN, z);
+    
+    /* allocate y_ (output in surface layer) */
+    double (*y_)[CLASS];
+    y_ = calloc(NUM_IMAGES_TRAIN*CLASS, sizeof(double));
+    
+    /* forward propagation through surface layer */
+    linCon_softmax(NUM_IMAGES_TRAIN, NUM_HIDDEN, z, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s, NUM_IMAGES_TRAIN, CLASS, y_);
+    
+    //double cross = cross_entropy(NUM_IMAGES_TRAIN, CLASS, y_, NUM_IMAGES_TRAIN, train_y);
+    
+    //printf("cross: %e\n", (cross));
+    
+    
+    
+    return 1;
+}
+   
+   
+    
 /* http://www.kk.iij4u.or.jp/~kondo/wave/swab.html */
 void FlipLong(unsigned char * ptr) {
     register unsigned char val;
@@ -75,7 +154,7 @@ void read_images(char *filename,int row, int col, unsigned char images[row][col]
     unsigned char *ptr;
     
     if ((fd=open(filename, O_RDONLY))==-1){
-        printf("couldn't open image file");
+        printf("couldn't open image file: %s\n", filename);
         exit(0);
     }
     
@@ -290,46 +369,3 @@ double cross_entropy(int rowy_, int coly_, double y_[rowy_][coly_],
     return e;
 }
 */
-
-int main(int argc, char **argv){
-    
-    read_images(TRAIN_X_PATH, NUM_IMAGES_TRAIN, SIZE, train_x);
-    read_images(TEST_X_PATH, NUM_IMAGES_TEST, SIZE,  test_x);
-    read_labels(TRAIN_Y_PATH, NUM_IMAGES_TRAIN, train_y);
-    read_labels(TEST_Y_PATH, NUM_IMAGES_TEST, test_y);
-    
-    matUCtoD(NUM_IMAGES_TRAIN, SIZE, train_x, NUM_IMAGES_TRAIN,SIZE, train_x_d);
-    matUCtoD(NUM_IMAGES_TEST, SIZE, test_x, NUM_IMAGES_TRAIN,SIZE, test_x_d);
-    
-    
-    /* initialize hidden layer */
-    double w[SIZE][NUM_HIDDEN];
-    double b[NUM_HIDDEN][1];
-    init(5, SIZE, NUM_HIDDEN ,w, NUM_HIDDEN,1,b);
-    
-    /* initialize surface layer */
-    double w_s[NUM_HIDDEN][CLASS];
-    double b_s[CLASS][1];
-    init(5, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s);
-    
-    /* allocate z */
-    double (*z)[NUM_HIDDEN];
-    z = calloc(NUM_IMAGES_TRAIN*NUM_HIDDEN, sizeof(double));
-    
-    
-    linCon_tanh(NUM_IMAGES_TRAIN, SIZE, train_x_d, SIZE, NUM_HIDDEN, w, NUM_HIDDEN, 1, b, NUM_IMAGES_TRAIN, NUM_HIDDEN, z);
-    
-    /* allocate y_ (outputs) */
-    double (*y_)[CLASS];
-    y_ = calloc(NUM_IMAGES_TRAIN*CLASS, sizeof(double));
-    
-    linCon_softmax(NUM_IMAGES_TRAIN, NUM_HIDDEN, z, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s, NUM_IMAGES_TRAIN, CLASS, y_);
-    
-    //double cross = cross_entropy(NUM_IMAGES_TRAIN, CLASS, y_, NUM_IMAGES_TRAIN, train_y);
-    
-    //printf("cross: %e\n", (cross));
-    
-    
-    
-    return 1;
-}
