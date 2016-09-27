@@ -60,6 +60,8 @@ void read_labels(char *filename, int length, unsigned char array[length]);
 void print_images(unsigned char images[][SIZE]);
 void matUCtoD(int rowx, int colx, unsigned char x[rowx][colx],
               int rowx_d, int colx_d, double x_d[rowx_d][colx_d]);
+void label_oh(int len, unsigned char y[len],
+              int rowy_oh, int coly_oh, double y_oh[rowy_oh][coly_oh]);
 void matmul(int row1, int col1, double fMat1[row1][col1],
             int row2, int col2, double fMat2[row2][col2],
             int row3, int col3, double tMat3[row3][col3]);
@@ -96,6 +98,12 @@ int main(int argc, char **argv){
     /* cast image data from unsigned char to double */
     matUCtoD(NUM_IMAGES_TRAIN, SIZE, train_x, NUM_IMAGES_TRAIN,SIZE, train_x_d);
     matUCtoD(NUM_IMAGES_TEST, SIZE, test_x, NUM_IMAGES_TRAIN,SIZE, test_x_d);
+    
+    /* make one-hot label matrix */
+    double train_y_oh[NUM_IMAGES_TRAIN][CLASS];
+    double test_y_oh[NUM_IMAGES_TEST][CLASS];
+    label_oh(NUM_IMAGES_TRAIN, train_y, NUM_IMAGES_TRAIN, CLASS, train_y_oh);
+    label_oh(NUM_IMAGES_TEST, test_y, NUM_IMAGES_TEST, CLASS, test_y_oh);
     
     /* initialize variables in hidden layer */
     double w[SIZE][NUM_HIDDEN];
@@ -229,6 +237,15 @@ void matUCtoD(int rowx, int colx, unsigned char x[rowx][colx],
     }
 }
 
+void label_oh(int len, unsigned char y[len],
+              int rowy_oh, int coly_oh, double y_oh[rowy_oh][coly_oh]){
+    if(len != rowy_oh){
+        printf("length did not match in label_oh func");
+        exit(0);
+    }
+    for (int i=0; i<len; i++)
+        y_oh[i][y[i]] = 1.0;
+}
 
 void matmul(int row1, int col1, double fMat1[row1][col1],
             int row2, int col2, double fMat2[row2][col2],
