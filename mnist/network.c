@@ -142,7 +142,7 @@ void refine_variables(int roww, int colw, double w[roww][colw],
     }
     
     /* debug*/
-    printf("w[0][0]= %f\n", w[0][0]);
+    //printf("w[0][0]= %f\n", w[0][0]);
     
     /* w_refined = (z.T).dot(d) */
     int i,j,k;
@@ -154,7 +154,7 @@ void refine_variables(int roww, int colw, double w[roww][colw],
                 sum += z[k][i]*d[k][j];
                 //printf("z[%d][%d]:%f    ,d[%d][%d]:%f\n", k,i,z[k][i],k,j,d[k][j]);
             }
-            w[i][j] -= alpha * sum;
+            w[i][j] -= alpha/(double)(rowz) * sum;
             //printf("change amount: %f\n",sum);
             //printf("sum[%d][%d]: %f \n", i,j,sum);
         }
@@ -196,11 +196,19 @@ double cross_entropy(int rowy_, int coly_, double y_[rowy_][coly_],
 
 double answer(int rowd, int cold, double d[rowd][cold],
               int rowy_, int coly_, double y_[rowy_][coly_]){
+    long ans[cold][cold];
+    for(int i=0;i<cold;i++)
+        for(int j=0;j<cold;j++)
+            ans[i][j] = 0; //initialize
+    
     int i,j, good=0;
     for(i=0; i<rowd; i++){
         double maxy_ =0.0;
         int maxd_index=0, maxy__index = 0;
         for(j=0; j<cold; j++){
+            double tempd = d[i][j];
+            double tempy_ = y_[i][j];
+            
             if (maxd_index < d[i][j])
                 maxd_index = j;
             if (maxy_ < y_[i][j]){
@@ -210,7 +218,22 @@ double answer(int rowd, int cold, double d[rowd][cold],
         }
         if (maxd_index == maxy__index)
             good++;
+        ans[maxy__index][maxd_index]++;
     }
-    printf("result for train: %d/%i\n", good, i);
+    printf("result for train: %d/%i= %.5f\n", good, i, (double)good/(double)(i));
+    
+    //print cross table
+    printf("      ");
+    for(j=0; j<cold; j++)
+        printf("%8d", j);
+    printf("\n");
+    for(i=0; i<cold; i++){
+        printf("%8d", i);
+        for(j=0; j<cold; j++){
+            printf("%8ld", ans[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
     return (double)good/(double)(i);
 }
