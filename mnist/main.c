@@ -26,18 +26,9 @@
 #define SIZE 784   /* 28 x 28 */
 #define NUM_HIDDEN 5
 #define CLASS 10
-double alpha = 1e-5;
+double alpha = 1e-4;
 
 static int num[10];
-unsigned char train_x[NUM_IMAGES_TRAIN][SIZE];
-double train_x_d[NUM_IMAGES_TRAIN][SIZE];
-unsigned char test_x[NUM_IMAGES_TEST][SIZE];
-double test_x_d[NUM_IMAGES_TEST][SIZE];
-unsigned char train_y[NUM_IMAGES_TRAIN];
-double train_y_oh[NUM_IMAGES_TRAIN][CLASS]; // one-hot label
-unsigned char test_y[NUM_IMAGES_TEST];
-double test_y_oh[NUM_IMAGES_TEST][CLASS];      // one-hot label
-
 /*
  TRAINING SET IMAGE FILE (train-images-idx3-ubyte):
  [offset] [type]          [value]          [description]
@@ -98,7 +89,24 @@ double answer(int rowd, int cold, double d[rowd][cold],
  ************************/
     
 int main(int argc, char **argv){
+    unsigned char (*train_x)[SIZE];
+    train_x = calloc(NUM_IMAGES_TRAIN*SIZE, sizeof(unsigned char));
+    double (*train_x_d)[SIZE];
+    train_x_d = calloc(NUM_IMAGES_TRAIN*SIZE, sizeof(double));
+    unsigned char (*test_x)[SIZE];
+    test_x = calloc(NUM_IMAGES_TEST*SIZE, sizeof(unsigned char));
+                    
+    double (*test_x_d)[SIZE];
+    test_x_d = calloc(NUM_IMAGES_TEST*SIZE, sizeof(double));
     
+    unsigned char (*train_y);
+    train_y = calloc(NUM_IMAGES_TRAIN, sizeof(unsigned char));
+    //double train_y_oh[NUM_IMAGES_TRAIN][CLASS]; // one-hot label
+    unsigned char (*test_y);
+    test_y = calloc(NUM_IMAGES_TEST, sizeof(unsigned char));
+    //double test_y_oh[NUM_IMAGES_TEST][CLASS];      // one-hot label
+
+   
     /* read images and labels for train and test data */
     read_images(TRAIN_X_PATH, NUM_IMAGES_TRAIN, SIZE, train_x);
     read_images(TEST_X_PATH, NUM_IMAGES_TEST, SIZE,  test_x);
@@ -114,6 +122,13 @@ int main(int argc, char **argv){
     double test_y_oh[NUM_IMAGES_TEST][CLASS]=  {0};
     label_oh(NUM_IMAGES_TRAIN, train_y, NUM_IMAGES_TRAIN, CLASS, train_y_oh);
     label_oh(NUM_IMAGES_TEST, test_y, NUM_IMAGES_TEST, CLASS, test_y_oh);
+   
+    /* free memory */
+    free(train_x);
+    free(test_x);
+    free(train_y);
+    free(test_y);
+    
     
     /* initialize variables in hidden layer */
     double w[SIZE][NUM_HIDDEN];
@@ -128,22 +143,31 @@ int main(int argc, char **argv){
     /* allocate h (intermid value in hidden layer) */
     double (*h)[NUM_HIDDEN];
     h = calloc(NUM_IMAGES_TRAIN*NUM_HIDDEN, sizeof(double));
-    
-    int count = 0;
-    
-    while(count <10){
-    /* forward propagation through hidden layer */
-    linCon(NUM_IMAGES_TRAIN, SIZE, train_x_d, SIZE, NUM_HIDDEN, w, NUM_HIDDEN, 1, b, NUM_IMAGES_TRAIN, NUM_HIDDEN, h);
-   
     /* allocate z (output in hidden layer) */
     double (*z)[NUM_HIDDEN];
     z = calloc(NUM_IMAGES_TRAIN*NUM_HIDDEN, sizeof(double));
-    tanh_mat(NUM_IMAGES_TRAIN,NUM_HIDDEN, h,
-             NUM_IMAGES_TRAIN,NUM_HIDDEN, z);
-    
     /* allocate y_ (output in surface layer) */
     double (*y_)[CLASS];
     y_ = calloc(NUM_IMAGES_TRAIN*CLASS, sizeof(double));
+    double (*delta1)[CLASS];
+    delta1 = calloc(NUM_IMAGES_TRAIN*CLASS, sizeof(double));
+    
+    double (*delta0)[NUM_HIDDEN];
+    delta0 = calloc(NUM_IMAGES_TRAIN*NUM_HIDDEN, sizeof(double));
+    
+    double cross;
+    
+    int count = 0;
+    while(count <20){
+    /* forward propagation through hidden layer */
+    linCon(NUM_IMAGES_TRAIN, SIZE, train_x_d, SIZE, NUM_HIDDEN, w, NUM_HIDDEN, 1, b, NUM_IMAGES_TRAIN, NUM_HIDDEN, h);
+   
+    
+    tanh_mat(NUM_IMAGES_TRAIN,NUM_HIDDEN, h,
+             NUM_IMAGES_TRAIN,NUM_HIDDEN, z);
+   
+        
+
     /* forward propagation through surface layer */
     linCon_softmax(NUM_IMAGES_TRAIN, NUM_HIDDEN, z, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s, NUM_IMAGES_TRAIN, CLASS, y_);
         
@@ -152,13 +176,12 @@ int main(int argc, char **argv){
     
     
     /* calculate cross-entropy */
-    double cross = cross_entropy(NUM_IMAGES_TRAIN,CLASS, y_,
+    cross = cross_entropy(NUM_IMAGES_TRAIN,CLASS, y_,
                                  NUM_IMAGES_TRAIN,CLASS, train_y_oh);
     printf("count:%d,  cross=%.5f\n", count, cross);
     
     /* calculate delta1 */
-    double (*delta1)[CLASS];
-    delta1 = calloc(NUM_IMAGES_TRAIN*CLASS, sizeof(double));
+    
     for (int i=0; i< NUM_IMAGES_TRAIN; i++){
         for(int j=0; j< CLASS; j++){
             delta1[i][j] = y_[i][j] - train_y_oh[i][j];
@@ -166,7 +189,6 @@ int main(int argc, char **argv){
     }
     
     /* back propagation */
-    double delta0[NUM_IMAGES_TRAIN][NUM_HIDDEN];
     backprop_tanh(NUM_IMAGES_TRAIN, NUM_HIDDEN, z, NUM_HIDDEN, CLASS, w_s, NUM_IMAGES_TRAIN, CLASS, delta1, NUM_IMAGES_TRAIN, NUM_HIDDEN, delta0);
     
     /* sto */
@@ -177,6 +199,7 @@ int main(int argc, char **argv){
     
     count += 1;
         printf("\n");
+    
     }
     
     return 1;
@@ -422,6 +445,7 @@ void backprop_tanh(int rowu, int colu, double u[rowu][colu],
             d0[i][j] = (1- pow(tanh(u[i][j]), 2.0)) * temp[i][j];
         }
     }
+    free(temp);
 }
 
 void refine_variables(int roww, int colw, double w[roww][colw],
@@ -493,8 +517,6 @@ double answer(int rowd, int cold, double d[rowd][cold],
         double maxy_ =0.0;
         int maxd_index=0, maxy__index = 0;
         for(j=0; j<cold; j++){
-            double temp = d[i][j];
-            double temp2 = y_[i][j];
             if (maxd_index < d[i][j])
                 maxd_index = j;
             if (maxy_ < y_[i][j]){
