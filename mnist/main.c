@@ -26,7 +26,7 @@
 #define SIZE 784   /* 28 x 28 */
 #define NUM_HIDDEN 5
 #define CLASS 10
-double alpha = 1e-0;
+double alpha = 1e-5;
 
 static int num[10];
 unsigned char train_x[NUM_IMAGES_TRAIN][SIZE];
@@ -90,6 +90,8 @@ void init(unsigned int range,
           int rowb, int colb, double b[rowb][colb]);
 double cross_entropy(int rowy_, int coly_, double y_[rowy_][coly_],
                      int rowd, int cold, double d[rowd][cold]);
+double answer(int rowd, int cold, double d[rowd][cold],
+              int rowy_, int coly_, double y_[rowy_][coly_]);
     
 /*************************
     main function
@@ -144,6 +146,9 @@ int main(int argc, char **argv){
     y_ = calloc(NUM_IMAGES_TRAIN*CLASS, sizeof(double));
     /* forward propagation through surface layer */
     linCon_softmax(NUM_IMAGES_TRAIN, NUM_HIDDEN, z, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s, NUM_IMAGES_TRAIN, CLASS, y_);
+        
+    /* print answer */
+    answer(NUM_IMAGES_TRAIN,CLASS,train_y_oh,NUM_IMAGES_TRAIN,CLASS,y_);
     
     
     /* calculate cross-entropy */
@@ -171,6 +176,7 @@ int main(int argc, char **argv){
     refine_variables(SIZE, NUM_HIDDEN, w, NUM_IMAGES_TRAIN, NUM_HIDDEN, delta0, NUM_IMAGES_TRAIN,SIZE,train_x_d, alpha);
     
     count += 1;
+        printf("\n");
     }
     
     return 1;
@@ -294,7 +300,7 @@ void label_oh(int len, unsigned char y[len],
         printf("length did not match in label_oh func");
         exit(0);
     }
-    for (int i=59996; i<len; i++)
+    for (int i=0; i<len; i++)
         y_oh[i][y[i]] = 1.0;
 }
 
@@ -432,18 +438,19 @@ void refine_variables(int roww, int colw, double w[roww][colw],
     
     /* w_refined = (z.T).dot(d) */
     int i,j,k;
-    double sum, change;
+    double sum;
     for(i=0; i<roww; i++){
         for(j=0;j<colw; j++){
+            sum =0;
             for(k=0; k<rowz; k++){
-                sum += alpha * z[k][i]*d[k][j];
+                sum += z[k][i]*d[k][j];
                 //printf("z[%d][%d]:%f    ,d[%d][%d]:%f\n", k,i,z[k][i],k,j,d[k][j]);
-                w[i][j] = alpha * z[k][i]*d[k][j];
             }
+            w[i][j] -= alpha * sum;
+            //printf("change amount: %f\n",sum);
             //printf("sum[%d][%d]: %f \n", i,j,sum);
         }
     }
-    change = alpha * sum;
     
 }
 
@@ -479,3 +486,25 @@ double cross_entropy(int rowy_, int coly_, double y_[rowy_][coly_],
     return e;
 }
 
+double answer(int rowd, int cold, double d[rowd][cold],
+              int rowy_, int coly_, double y_[rowy_][coly_]){
+    int i,j, good=0;
+    for(i=0; i<rowd; i++){
+        double maxy_ =0.0;
+        int maxd_index=0, maxy__index = 0;
+        for(j=0; j<cold; j++){
+            double temp = d[i][j];
+            double temp2 = y_[i][j];
+            if (maxd_index < d[i][j])
+                maxd_index = j;
+            if (maxy_ < y_[i][j]){
+                maxy__index = j;
+                maxy_ = y_[i][j];
+            }
+        }
+        if (maxd_index == maxy__index)
+            good++;
+    }
+    printf("result for train: %d/%i\n", good, i);
+    return (double)good/(double)(i);
+}
