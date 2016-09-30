@@ -19,12 +19,13 @@
 #define NUM_IMAGES_TRAIN 60000
 #define NUM_IMAGES_TEST 10000
 #define SIZE 784   /* 28 x 28 */
-#define NUM_HIDDEN 5
+#define NUM_HIDDEN 10
 #define CLASS 10
-#define NUM_MINIBATCH 30000
+#define NUM_MINIBATCH 60000
 #define SHOWNUM 1
-double alpha = 5e-0;
-
+double alpha = 5e-2;
+double var = 1e+2;
+int useminibatch = 1;
 /*
  TRAINING SET IMAGE FILE (train-images-idx3-ubyte):
  [offset] [type]          [value]          [description]
@@ -100,13 +101,14 @@ int main(int argc, char **argv){
     /* initialize variables in hidden layer */
     double w[SIZE][NUM_HIDDEN];
     double b[NUM_HIDDEN][1];
-    init(5, SIZE, NUM_HIDDEN ,w, NUM_HIDDEN,1,b);
+    init(var, SIZE, NUM_HIDDEN ,w, NUM_HIDDEN,1,b);
     
     /* initialize variables in surface layer */
     double w_s[NUM_HIDDEN][CLASS];
     double b_s[CLASS][1];
-    init(5, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s);
+    init(var, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s);
     
+    /************ full sample **************/
     /* allocate h (intermid value in hidden layer) */
     double (*h)[NUM_HIDDEN];
     h = calloc(NUM_IMAGES_TRAIN*NUM_HIDDEN, sizeof(double));
@@ -118,13 +120,44 @@ int main(int argc, char **argv){
     y_ = calloc(NUM_IMAGES_TRAIN*CLASS, sizeof(double));
     double (*delta1)[CLASS];
     delta1 = calloc(NUM_IMAGES_TRAIN*CLASS, sizeof(double));
-    
     double (*delta0)[NUM_HIDDEN];
     delta0 = calloc(NUM_IMAGES_TRAIN*NUM_HIDDEN, sizeof(double));
+    /***************************************/
     
-    int startPoint = 0; /*initialize start index for minibatch */
+    
+    /*************mini batch ****************/
+    /* allocate h (intermid value in hidden layer) */
+    double (*h_mini)[NUM_HIDDEN];
+    h_mini = calloc(NUM_MINIBATCH*NUM_HIDDEN, sizeof(double));
+    /* allocate z (output in hidden layer) */
+    double (*z_mini)[NUM_HIDDEN];
+    z_mini = calloc(NUM_MINIBATCH*NUM_HIDDEN, sizeof(double));
+    /* allocate y_ (output in surface layer) */
+    double (*y__mini)[CLASS];
+    y__mini = calloc(NUM_MINIBATCH*CLASS, sizeof(double));
+    double (*delta1_mini)[CLASS];
+    delta1_mini = calloc(NUM_MINIBATCH*CLASS, sizeof(double));
+    double (*delta0_mini)[NUM_HIDDEN];
+    delta0_mini = calloc(NUM_MINIBATCH*NUM_HIDDEN, sizeof(double));
+     /**************************************/
+    
+    
+    int startPoint = 0000; /*initialize start index for minibatch */
     double cross;
+   
     
+    /* apply full-batch learning for the first time */
+    /*
+    cross = datain2refine(NUM_IMAGES_TRAIN, SIZE, NUM_HIDDEN, CLASS, train_x_d,
+                  w, b, h,
+                  z,w_s, b_s,
+                  y_, train_y_oh_mini,
+                  delta0, delta1);
+    printf("count: first fullbatch, cross:%.4f ", cross);
+    // print answer
+    answer(NUM_IMAGES_TRAIN,CLASS,train_y_oh,NUM_IMAGES_TRAIN,CLASS,y_);
+    printf("\n");
+    */
     
     /******************
         loop
@@ -140,21 +173,40 @@ int main(int argc, char **argv){
                   train_y_oh, train_y_oh_mini);
         //double total = print_matrix(NUM_MINIBATCH, SIZE, train_x_d_mini, NUM_MINIBATCH, SIZE);
         
+        for(int i=0; i< NUM_MINIBATCH;i++)
+            for(int j=0; j<SIZE; j++)
+                if(train_x_d[i][j] != train_x_d_mini[i][j]){
+                    printf("x[%d][%d]:%f  ,", i,j, train_x_d[i][j]);
+                    printf("mini[%d][%d]:%f  ,", i,j, train_x_d_mini[i][j]);
+                    printf("error!!!!!!\n");
+                }
         
-        cross = datain2refine(NUM_MINIBATCH, SIZE, NUM_HIDDEN, CLASS, train_x_d_mini,
-                      w, b, h,
-                      z,w_s, b_s,
-                      y_, train_y_oh_mini,
-                      delta0, delta1);
-        
-        
-        /*
-        cross =datain2refine(NUM_IMAGES_TRAIN, SIZE, NUM_HIDDEN, CLASS, train_x_d,
+        if(useminibatch){
+            /*
+            for(int n=0; n<NUM_MINIBATCH; n++){
+                for(int i=0; i<784; i++){
+                    if(i %28 ==0){
+                        printf("\n");
+                    }
+                    printf("%4d", (int)train_x_d_mini[n][i]);
+                }
+                printf("\n\n");
+            }
+             */
+            
+            
+            cross = datain2refine(NUM_MINIBATCH, SIZE, NUM_HIDDEN, CLASS, train_x_d_mini,
+                      w, b, h_mini,
+                      z_mini,w_s, b_s,
+                      y__mini, train_y_oh_mini,
+                      delta0_mini, delta1_mini);
+        } else {
+            cross =datain2refine(NUM_IMAGES_TRAIN, SIZE, NUM_HIDDEN, CLASS, train_x_d,
                       w, b, h,
                       z,w_s, b_s,
                       y_, train_y_oh,
                       delta0, delta1);
-        */
+        }
         
         if (count % SHOWNUM == 0){
             printf("count: %d, cross:%.4f ", count, cross);
