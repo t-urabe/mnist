@@ -31,6 +31,7 @@ void backprop_tanh(int rowu, int colu, double u[rowu][colu],
                    int rowd1, int cold1, double d1[rowd1][cold1],
                    int rowd0, int cold0, double d0[rowd0][cold0]);
 void refine_variables(int roww, int colw, double w[roww][colw],
+                      int rowb, double b[rowb][1],
                       int rowd, int cold, double d[rowd][cold], /* delta(l)*/
                       int rowz, int colz, double z[rowz][colz], /* z(l-1) */
                       double alpha);

@@ -133,10 +133,11 @@ void backprop_tanh(int rowu, int colu, double u[rowu][colu],
 }
 
 void refine_variables(int roww, int colw, double w[roww][colw],
+                      int rowb, double b[rowb][1],
                       int rowd, int cold, double d[rowd][cold], /* delta(l)*/
                       int rowz, int colz, double z[rowz][colz], /* z(l-1) */
                       double alpha){
-    if(rowz != rowd || roww != colz || colw != cold){
+    if(rowz != rowd || roww != colz || colw != cold || rowb != colw){
         printf("Mat shape did not match in refine_var func\n");
         exit(0);
     }
@@ -146,15 +147,17 @@ void refine_variables(int roww, int colw, double w[roww][colw],
     
     /* w_refined = (z.T).dot(d) */
     int i,j,k;
-    double sum;
+    double sum,sumb;
     for(i=0; i<roww; i++){
         for(j=0;j<colw; j++){
             sum =0;
             for(k=0; k<rowz; k++){
                 sum += z[k][i]*d[k][j];
+                sumb += d[k][j];
                 //printf("z[%d][%d]:%f    ,d[%d][%d]:%f\n", k,i,z[k][i],k,j,d[k][j]);
             }
             w[i][j] -= alpha/(double)(rowz) * sum;
+            b[j][0] -= alpha/(double)(rowz) * sumb;
             //printf("change amount: %f\n",sum);
             //printf("sum[%d][%d]: %f \n", i,j,sum);
         }

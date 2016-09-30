@@ -21,9 +21,9 @@
 #define SIZE 784   /* 28 x 28 */
 #define NUM_HIDDEN 10
 #define CLASS 10
-#define NUM_MINIBATCH 60000
+#define NUM_MINIBATCH 1000
 #define SHOWNUM 1
-double alpha = 5e-2;
+double alpha = 1e-5;
 double var = 1e+2;
 int useminibatch = 1;
 /*
@@ -95,17 +95,26 @@ int main(int argc, char **argv){
     double (*train_x_d_mini)[SIZE];
     train_x_d_mini = calloc(NUM_MINIBATCH*SIZE, sizeof(double));
     double (*train_y_oh_mini)[CLASS];
-    train_y_oh_mini = calloc(NUM_MINIBATCH*SIZE, sizeof(double));
+    train_y_oh_mini = calloc(NUM_MINIBATCH*CLASS, sizeof(double));
+    double (*test_x_d_mini)[SIZE];
+    test_x_d_mini = calloc(NUM_MINIBATCH*SIZE, sizeof(double));
+    double (*test_y_oh_mini)[CLASS];
+    test_y_oh_mini = calloc(NUM_MINIBATCH*CLASS, sizeof(double));
     
     
     /* initialize variables in hidden layer */
-    double w[SIZE][NUM_HIDDEN];
-    double b[NUM_HIDDEN][1];
+    double (*w)[NUM_HIDDEN];
+    w = calloc(SIZE*NUM_HIDDEN, sizeof(double));
+    double (*b)[1];
+    b =calloc(NUM_HIDDEN*1, sizeof(double));
+    
     init(var, SIZE, NUM_HIDDEN ,w, NUM_HIDDEN,1,b);
     
     /* initialize variables in surface layer */
-    double w_s[NUM_HIDDEN][CLASS];
-    double b_s[CLASS][1];
+    double (*w_s)[CLASS];
+    w_s = calloc(NUM_HIDDEN*CLASS, sizeof(double));
+    double (*b_s)[1];
+    b_s = calloc(CLASS*1, sizeof(double));
     init(var, NUM_HIDDEN, CLASS, w_s, CLASS, 1, b_s);
     
     /************ full sample **************/
@@ -166,23 +175,19 @@ int main(int argc, char **argv){
     int count = 0;
     while(count <20000){
        //printf("startPoint: %d\n", startPoint);
-       
-        /* minibatch */
-        startPoint = minibatch(startPoint, NUM_MINIBATCH, NUM_IMAGES_TRAIN, CLASS, SIZE,
-                  train_x_d, train_x_d_mini,
-                  train_y_oh, train_y_oh_mini);
-        //double total = print_matrix(NUM_MINIBATCH, SIZE, train_x_d_mini, NUM_MINIBATCH, SIZE);
+            int startPointOld = startPoint;
         
-        for(int i=0; i< NUM_MINIBATCH;i++)
-            for(int j=0; j<SIZE; j++)
-                if(train_x_d[i][j] != train_x_d_mini[i][j]){
-                    printf("x[%d][%d]:%f  ,", i,j, train_x_d[i][j]);
-                    printf("mini[%d][%d]:%f  ,", i,j, train_x_d_mini[i][j]);
-                    printf("error!!!!!!\n");
-                }
+            /* minibatch */
+            startPoint = minibatch(startPoint, NUM_MINIBATCH, NUM_IMAGES_TRAIN, CLASS, SIZE,
+                                   train_x_d, train_x_d_mini,
+                                   train_y_oh, train_y_oh_mini);
+       
         
         if(useminibatch){
             /*
+          
+           
+            printf("mini\n");
             for(int n=0; n<NUM_MINIBATCH; n++){
                 for(int i=0; i<784; i++){
                     if(i %28 ==0){
@@ -192,7 +197,47 @@ int main(int argc, char **argv){
                 }
                 printf("\n\n");
             }
-             */
+            
+            printf("full\n");
+            for(int n=0; n<NUM_MINIBATCH; n++){
+                for(int i=0; i<784; i++){
+                    if(i %28 ==0){
+                        printf("\n");
+                    }
+                    printf("%4d", (int)train_x_d[n+startPointOld][i]);
+                }
+                printf("\n\n");
+            }
+            
+            printf("mini\n");
+            for(int n=0; n<NUM_MINIBATCH; n++){
+                for(int i=0; i<10; i++){
+                    printf("%4d", (int)train_y_oh_mini[n][i]);
+                }
+                printf("\n");
+            }
+            printf("\n\n");
+            
+            printf("full\n");
+            for(int n=0; n<NUM_MINIBATCH; n++){
+                for(int i=0; i<10; i++){
+                    printf("%4d", (int)train_y_oh[n+startPointOld][i]);
+                }
+                puts("");
+            }
+            printf("\n\n");
+            
+            */
+            
+            //double total = print_matrix(NUM_MINIBATCH, SIZE, train_x_d_mini, NUM_MINIBATCH, SIZE);
+            printf("using minibatch= %d, startPoint: %d\n", NUM_MINIBATCH, startPoint);
+            for(int i=0; i< NUM_MINIBATCH;i++)
+                for(int j=0; j<SIZE; j++)
+                    if(train_x_d[i+startPointOld][j] != train_x_d_mini[i][j]){
+                        printf("x[%d][%d]:%f  ,", i+startPointOld,j, train_x_d[i][j]);
+                        printf("mini[%d][%d]:%f  ,", i,j, train_x_d_mini[i][j]);
+                        printf("error!!!!!!\n");
+                    }
             
             
             cross = datain2refine(NUM_MINIBATCH, SIZE, NUM_HIDDEN, CLASS, train_x_d_mini,
@@ -211,11 +256,13 @@ int main(int argc, char **argv){
         if (count % SHOWNUM == 0){
             printf("count: %d, cross:%.4f ", count, cross);
             /* print answer */
-            answer(NUM_IMAGES_TRAIN,CLASS,train_y_oh,NUM_IMAGES_TRAIN,CLASS,y_);
+            //answer(NUM_IMAGES_TRAIN,CLASS,train_y_oh,NUM_IMAGES_TRAIN,CLASS,y__mini);
+            printf("\n");
+            answer(NUM_MINIBATCH,CLASS,train_y_oh_mini,NUM_MINIBATCH,CLASS,y__mini);
             printf("\n");
         }
         
-   
+        printf("loop end \n\n");
         count += 1;
     
     }
@@ -231,6 +278,8 @@ int minibatch(int startPoint, int num_minibatch, int num_images, int class, int 
     for(i=0; i<num_minibatch; i++){
         for(j=0; j<col; j++){
             x_mini[i][j] = x[startPoint+i][j];
+        }
+        for(j=0; j<class; j++){
             y_mini[i][j] = y[startPoint+i][j];
         }
     }
@@ -269,8 +318,8 @@ double datain2refine(int num_images, int size, int num_hidden, int class, double
     
     /* sto */
     /* w_sto = (z.T).dot(delta) */
-    refine_variables(num_hidden, class, w_s, num_images, class, delta1, num_images,num_hidden,z, alpha);
-    refine_variables(size, num_hidden, w, num_images, num_hidden, delta0, num_images,size,x, alpha);
+    refine_variables(num_hidden, class, w_s, class, b_s, num_images, class, delta1, num_images,num_hidden,z, alpha);
+    refine_variables(size, num_hidden, w, num_hidden, b, num_images, num_hidden, delta0, num_images,size,x, alpha);
     
     return cross;
 }
