@@ -19,11 +19,11 @@
 #define NUM_IMAGES_TRAIN 60000
 #define NUM_IMAGES_TEST 10000
 #define SIZE 784   /* 28 x 28 */
-#define NUM_HIDDEN 10
+#define NUM_HIDDEN 20
 #define CLASS 10
-#define NUM_MINIBATCH 1000
+#define NUM_MINIBATCH 30000
 #define SHOWNUM 1
-double alpha = 1e-5;
+double alpha = 1e-2;
 double var = 1e+2;
 int useminibatch = 1;
 /*
@@ -75,6 +75,21 @@ int main(int argc, char **argv){
     read_labels(TRAIN_Y_PATH, NUM_IMAGES_TRAIN, train_y);
     read_labels(TEST_Y_PATH, NUM_IMAGES_TEST, test_y);
     
+    /* save trainnig data */
+    /*
+    int k,l;
+    FILE *fp;
+    fp = fopen("/users/tu-riken/train_x.txt", "w");
+    if(fp == NULL) printf("cannnot read train_x.txt.\n");
+    for(k=0; k<NUM_IMAGES_TRAIN; k++){
+        for(l=0; l<SIZE; l++){
+            fprintf(fp, "%d", train_x[k][l]);
+            if(l != SIZE-1) fprintf(fp, " ");
+        }
+        fprintf(fp, "\n");
+    }
+    */
+    
     /* cast image data from unsigned char to double */
     matUCtoD(NUM_IMAGES_TRAIN, SIZE, train_x, NUM_IMAGES_TRAIN,SIZE, train_x_d);
     matUCtoD(NUM_IMAGES_TEST, SIZE, test_x, NUM_IMAGES_TRAIN,SIZE, test_x_d);
@@ -84,7 +99,21 @@ int main(int argc, char **argv){
     double test_y_oh[NUM_IMAGES_TEST][CLASS]=  {0};
     label_oh(NUM_IMAGES_TRAIN, train_y, NUM_IMAGES_TRAIN, CLASS, train_y_oh);
     label_oh(NUM_IMAGES_TEST, test_y, NUM_IMAGES_TEST, CLASS, test_y_oh);
-   
+    
+    
+    /* save test data */
+    /*
+     fp = fopen("/users/tu-riken/train_y.txt", "w");
+    if(fp == NULL) printf("cannnot read train_y.txt.\n");
+    for(k=0; k<NUM_IMAGES_TRAIN; k++){
+        for(l=0; l<CLASS; l++){
+            fprintf(fp, "%f", train_y_oh[k][l]);
+            if(l != CLASS-1) fprintf(fp, " ");
+        }
+        fprintf(fp, "\n");
+    }
+    */
+    
     /* free memory */
     free(train_x);
     free(test_x);
